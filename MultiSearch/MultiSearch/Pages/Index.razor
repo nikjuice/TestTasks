@@ -1,0 +1,103 @@
+﻿@page "/"
+
+<PageTitle>Multi search</PageTitle>
+
+@using MultiSearch.Services
+@using System.Globalization
+@using Microsoft.AspNetCore.Components
+@using MultiSearch.Models
+
+@inject ISearchManager SearchManager
+
+
+<div class="container align-content-center">
+    <EditForm Model="@_searchInputModel" OnValidSubmit="@PerformSearchAsync">
+        <div class="row">
+            <div class="col-sm-12">
+                <p class="h1 text-dark">Multi search hits counter</p>
+                <DataAnnotationsValidator/>
+                <div class="d-flex align-items-center">
+                <span class="text-dark">Please enter search term &nbsp;</span>
+                <InputText id="name" class="rounded" @bind-Value="_searchInputModel.SearchTerms"/>
+                &nbsp;<button type="submit" class="btn btn-dark text-white btn-sm"> <i class="oi oi-magnifying-glass"/>
+                    Search</button>
+                </div>
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-sm-12">
+                <ValidationSummary/>
+            </div>
+        </div>
+    </EditForm>
+    <div class="row"><div class="col-sm-12"><br/></div></div>
+    <div class="row  @(_results.Count > 0 ? "d-flex" : "d-none")">
+        <div class="col-sm-2 fw-bold">Provider name</div>
+        <div class="col-sm-10 fw-bold">Results count</div>
+    </div>
+    @foreach (var result in _results)
+    {
+        <div class="row">
+            <div class="col-sm-2">
+                <span class="text-dark">@result.Key</span>
+            </div>
+            <div class="col-sm-10">
+                @if (result.Value == null)
+                 {
+                     <div class="spinner-border spinner-border-sm text-dark" role="status"/>
+                 }
+                else
+                {
+                    <div class="d-flex align-items-center @(!result.Value.Success ? "d-block" : "d-none")">
+                        <span class="text-danger">@result.Value.Message &nbsp;</span>
+                        <i class="oi oi-circle-x small text-danger"/>
+                    </div>
+                    <div class="d-flex align-items-center @(result.Value.Success ? "d-block" : "d-none")">
+                            <span class="text-dark ">@result.Value.Data.ToString("N", GetFormatInfo()) results &nbsp;</span>
+                            <i class="oi oi-check small text-dark float-sm-end"/>
+                    </div>
+                }
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    
+    private readonly Dictionary<string, IResult<int>?> _results= new();
+    private readonly SearchInputModel _searchInputModel = new();
+    
+    protected override void OnInitialized()
+    {
+        _searchInputModel.SearchTerms = "hello world";
+    }
+
+    private async Task PerformSearchAsync()
+    {
+        _results.Clear();
+        var searchResponses = await SearchManager.SearchAsync(new List<string>(_searchInputModel.SearchTerms.Trim().Split(" ",StringSplitOptions.RemoveEmptyEntries)));
+
+        foreach (var searchResponse in searchResponses)
+        {
+            _results.Add(searchResponse.Name, null);
+            searchResponse.HitsCountResult.ContinueWith(t =>
+            {
+                _results[searchResponse.Name] = t.Result;
+                          InvokeAsync(StateHasChanged);
+            });
+        }
+        InvokeAsync(StateHasChanged);
+    
+    }
+    
+    private static NumberFormatInfo GetFormatInfo()
+    {
+        return new NumberFormatInfo()
+        {
+             
+            NumberGroupSeparator = " ",
+            NumberDecimalDigits = 0
+        };
+    }
+
+}

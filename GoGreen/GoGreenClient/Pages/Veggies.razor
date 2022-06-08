@@ -1,0 +1,174 @@
+@page "/veggies"
+@using Microsoft.Extensions.Logging;
+@inject IGoGreenClientService _clientService
+@inject ILogger<Veggies> logger;
+
+@using GoGreenClient.Models
+
+<h1>Veggies list</h1>
+
+<p>Veggies are loaded from Go Green service</p>
+
+@if (loadFailed)
+{
+    <div class="alert alert-danger" role="alert">
+        There is an issue with the server, please contact administrator or try later!
+    </div>
+}
+else if (veggies == null)
+{
+    <p><em>Loading...</em></p>
+}
+else
+{
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Veggie id</th>
+                <th>Veggie name</th>
+                <th>Veggie price</th>
+                <th>Operation</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var veggie in veggies)
+            {
+                <tr>
+                    <td>@veggie.Id</td>
+                    <td>@veggie.Name</td>
+                    <td>@veggie.Price</td>
+                    <td>
+                        <button class="btn btn-primary" @onclick="@(e => EditVeggieAsync(e, veggie))">
+                            <span class="oi oi-copywriting" aria-hidden="true"></span>
+                        </button>
+                        <button class="btn btn-primary btn-danger" @onclick="@(e => DeleteVeggieAsync(e, veggie))">
+                            <span class="oi oi-delete" aria-hidden="true"></span>
+                        </button>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+
+    <EditForm Model="@veggieModel" OnValidSubmit="@AddVeggieAsync">
+        <DataAnnotationsValidator />
+        <ValidationSummary />
+
+        <div class="form-row align-items-center">
+            <div class="col-auto">
+                <label for="name" class="col-form-label">Name</label>
+            </div>
+            <div class="col-auto">
+                <InputText id="name" class="form-control" @bind-Value="veggieModel.Name" />
+            </div>
+            <div class="col-auto">
+                <label for="price" class="col-form-label">Price</label>
+            </div>
+            <div class="col-auto">
+                <InputNumber id="price" class="form-control" @bind-Value="veggieModel.Price" />
+            </div>
+            <div class="col-auto">
+                <button type="submit" class="btn btn-primary">Add veggie</button>
+            </div>
+        </div>
+
+    </EditForm>
+}
+
+@code {
+
+    [CascadingParameter]
+    private IModalService Modal { get; set; }
+
+    private List<Veggie> veggies;
+    private Veggie veggieModel = new Veggie();
+    private bool loadFailed;
+
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            loadFailed = false;
+            veggies = (await _clientService.GetAllVeggiesAsync()).ToList();
+        }
+        catch (Exception ex)
+        {
+            loadFailed = true;
+            logger.LogError("Error getting data", ex);
+        }
+    }
+
+    private async Task DeleteVeggieAsync(MouseEventArgs e, Veggie veggie)
+    {
+        try
+        {
+            loadFailed = false;
+            await _clientService.DeleteVeggieAsync(veggie.Id);
+            veggies.Remove(veggie);
+
+        }
+
+        catch (Exception ex)
+        {
+            loadFailed = true;
+            logger.LogError("Error getting data", ex);
+        }
+
+    }
+    private async Task EditVeggieAsync(MouseEventArgs e, Veggie veggie)
+    {
+        try
+        {
+            loadFailed = false;
+            var parameters = new ModalParameters();
+            //Passed only id and not object to demo the api for loading one particular veggie in EditVeggie dialog
+            parameters.Add(nameof(EditVeggieDialog.VeggieId), veggie.Id);
+
+            var moviesModal = Modal.Show<EditVeggieDialog>("Edit veggie", parameters);
+            var result = await moviesModal.Result;
+
+            if (!result.Cancelled)
+            {
+                var modifiedVeggie = (Veggie)result.Data;
+                var index = veggies.FindIndex(v => v.Id == modifiedVeggie.Id);
+              
+                if(index != -1)
+                {
+                    veggies[index] = modifiedVeggie;
+                }
+            }
+
+        }
+        catch (Exception ex)
+        {
+            loadFailed = true;
+            logger.LogError("Error getting data", ex);
+        }
+    }
+
+    private async Task AddVeggieAsync()
+    {
+        try
+        {
+            loadFailed = false;
+            var veggie = await _clientService.AddVeggieAsync(veggieModel);
+            
+            veggies.Add(veggie);
+        }
+
+        catch (Exception ex)
+        {
+            loadFailed = true;
+            logger.LogError("Error getting data", ex);
+        }
+    }
+
+    private async Task RefreshStateAsync()
+    {
+        var veggies = await _clientService.GetAllVeggiesAsync();
+
+    }
+
+
+}

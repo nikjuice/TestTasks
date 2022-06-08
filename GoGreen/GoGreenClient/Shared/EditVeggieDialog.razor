@@ -1,0 +1,49 @@
+﻿@inject IGoGreenClientService _clientService
+
+@if (veggie == null)
+{
+    <p><em>Loading...</em></p>
+}
+else
+{
+
+    <div class="simple-form">
+
+        <div class="form-group">
+            <label for="movie-name">Movie Name</label>
+            <input @bind="@veggie.Name" type="text" class="form-control" id="name" />
+        </div>
+
+        <div class="form-group">
+            <label for="year">Price</label>
+            <input @bind="@veggie.Price" type="text" class="form-control" id="price" />
+        </div>
+
+        <button @onclick="SaveVeggieAsync" class="btn btn-primary">Submit</button>
+        <button @onclick="BlazoredModal.Cancel" class="btn btn-secondary">Cancel</button>
+    </div>
+}
+
+@code {
+
+    [CascadingParameter] BlazoredModalInstance BlazoredModal { get; set; }
+
+    [Parameter] public string VeggieId { get; set; }
+
+    Veggie veggie { get; set; }
+
+    protected async override Task OnInitializedAsync()
+    {
+        veggie = await _clientService.GetVeggieAsync(VeggieId);
+    }
+
+    private async void SaveVeggieAsync()
+    {        
+
+        await InvokeAsync(() =>
+        {
+            BlazoredModal.Close(ModalResult.Ok<Veggie>(veggie));
+        });
+    }
+
+}
